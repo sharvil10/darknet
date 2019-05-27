@@ -65,22 +65,42 @@ void resize_upsample_layer(layer *l, int w, int h)
     
 }
 
+void remove_extra(float *in, float *out, int w, int h, int c, int batch, int stride)
+{
+    int new_w = w - (w % stride);
+    int new_h = h - (h % stride);
+    out = calloc(new_w * new_h * c * batch, sizeof(float));
+    int i, j, k, b;
+    for(b = 0; b < batch; ++b){
+        for(k = 0; k < c; ++k){
+            for(j = 0; j < new_h; ++j){
+                for(i = 0; i < new_w; ++i){
+                    int in_index = b*w*h*c + k*w*h + j*w + i;
+                    int out_index = b*new_w*new_h*c + k*new_w*new_h + j*new_w + i;
+                    out[out_index] = in[in_index];
+                }
+            }
+        }
+    }
+}
+
 void forward_upsample_layer(const layer l, network net)
 {
     fill_cpu(l.outputs*l.batch, 0, l.output, 1);
     if(l.reverse){
-        upsample_cpu(l.output, l.out_w, l.out_h, l.c, l.batch, l.stride, 0, l.scale, net.input);
+        //remove_extra(net.input, net.input, l.w, l.h, l.c, l.batch, l.stride);
+        upsample_cpu(l.output, l.out_w, l.out_h, l.c, l.batch, l.w, l.h, l.stride, 0, l.scale, net.input);
     }else{
-        upsample_cpu(net.input, l.w, l.h, l.c, l.batch, l.stride, 1, l.scale, l.output);
+        upsample_cpu(net.input, l.w, l.h, l.c, l.batch, l.out_w, l.out_h, l.stride, 1, l.scale, l.output);
     }
 }
 
 void backward_upsample_layer(const layer l, network net)
 {
     if(l.reverse){
-        upsample_cpu(l.delta, l.out_w, l.out_h, l.c, l.batch, l.stride, 1, l.scale, net.delta);
+        upsample_cpu(l.delta, l.out_w, l.out_h, l.c, l.batch, l.w, l.h, l.stride, 1, l.scale, net.delta);
     }else{
-        upsample_cpu(net.delta, l.w, l.h, l.c, l.batch, l.stride, 0, l.scale, l.delta);
+        upsample_cpu(net.delta, l.w, l.h, l.c, l.batch, l.out_w, l.out_h, l.stride, 0, l.scale, l.delta);
     }
 }
 
